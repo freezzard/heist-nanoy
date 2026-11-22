@@ -1,0 +1,32 @@
+/* The Gilded Vault — page frame: a dark wall for a dark museum. */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #07080c;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stage {
+  display: block;
+  width: min(100vw, 160vh);
+  height: auto;
+  aspect-ratio: 1280 / 800;
+  background: #0b0d12;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+}
+
+/* Read aloud, never shown: the line screen readers announce. */
+#status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
