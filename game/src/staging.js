@@ -49,9 +49,9 @@ function stageCover(night) {
   night.thief.facing = 0.5;
   lift(night, 'idol');
   night.alarm = 47;
-  placeGuard(night, 0, 268, 342, 0.5, 0);
+  placeGuard(night, 0, 268, 292, 0.5, 0);
   placeGuard(night, 1, 782, 372, 2.75, 0.35);
-  placeGuard(night, 2, 356, 648, 0.15, 0);
+  placeGuard(night, 2, 356, 690, 0.15, 0);
   placeCamera(night, 0, 2.95);
   placeCamera(night, 1, -1.25);
 }
@@ -76,7 +76,7 @@ function stageAlarm(night) {
   night.thief.facing = 0.2;
   lift(night, 'abacus');
   night.alarm = 86;
-  placeGuard(night, 0, 238, 330, 0.05, 0.85);
+  placeGuard(night, 0, 232, 300, 0.28, 0.85);
   placeGuard(night, 1, 700, 420, 2.4, 0);
   placeGuard(night, 2, 900, 620, 3.1, 0);
   placeCamera(night, 0, 2.8);
