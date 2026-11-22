@@ -1,23 +1,19 @@
 // draw.js — everything the player sees, painted on one canvas: the museum floor
 // with its rugs, ducts, cases and labels, vision cones that stop at walls, the
 // staff and the thief, the HUD with its alarm meter, and the night's screens.
+// Safe cover reads blue, danger reads amber and red, loot reads gold.
 
 import {
-  CASE_RECTS, DUCT_ZONES, HAUL_GOAL, HUD_H, LOOT_ITEMS, MAX_STRIKES,
-  PICK_SECONDS, PICK_SPOT, ROOM_LABELS, SHADOW_ZONES, STAGE_H, STAGE_W,
-  VAULT_DOOR, VAN_ZONE, WALL_RECTS,
+  CAMERA_HALF_ANGLE, CAMERA_SIGHT, CASE_RECTS, DUCT_ZONES, GUARD_HALF_ANGLE,
+  GUARD_SIGHT, HAUL_GOAL, HUD_H, MAX_STRIKES, PICK_SECONDS, PICK_SPOT,
+  ROOM_LABELS, SHADOW_ZONES, STAGE_H, STAGE_W, VAULT_DOOR, VAN_ZONE, WALL_RECTS,
 } from './floorplan.js';
 import { SCREEN_CAUGHT, SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN, carriedValue } from './heist.js';
-import { pointInRect } from './sight.js';
+import { pointInRect, solidsList } from './sight.js';
 
 const INK = '#e8e4d8';
 const DIM = '#9aa3b5';
 const GOLD = '#d9a441';
-
-function solidsFor(doorShut) {
-  const solids = doorShut ? WALL_RECTS.concat(CASE_RECTS, [VAULT_DOOR]) : WALL_RECTS.concat(CASE_RECTS);
-  return solids;
-}
 
 function rayReach(x, y, angle, maxDist, solids) {
   const stepLen = 5;
@@ -39,7 +35,7 @@ function rayReach(x, y, angle, maxDist, solids) {
 }
 
 function drawCone(ctx, watcher, range, halfAngle, colour, doorShut) {
-  const solids = solidsFor(doorShut);
+  const solids = solidsList(doorShut);
   const rays = 26;
   ctx.beginPath();
   ctx.moveTo(watcher.x, watcher.y);
@@ -51,9 +47,13 @@ function drawCone(ctx, watcher, range, halfAngle, colour, doorShut) {
   ctx.closePath();
   ctx.fillStyle = colour;
   ctx.fill();
+  ctx.strokeStyle = colour;
+  ctx.globalAlpha = 0.35;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 
-function drawFloor(ctx) {
+function drawFloor(ctx, night) {
   ctx.fillStyle = '#232839';
   ctx.fillRect(0, HUD_H, STAGE_W, STAGE_H - HUD_H);
   ctx.fillStyle = '#2b3249';
@@ -61,6 +61,27 @@ function drawFloor(ctx) {
   ctx.fillRect(876, 80, 388, 390);
   ctx.fillStyle = '#313a56';
   ctx.fillRect(436, 80, 424, 390);
+  // Skylight sheen across the atrium: two soft diagonal bands.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(436, 80, 424, 390);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(190,215,255,0.05)';
+  ctx.beginPath();
+  ctx.moveTo(470, 470);
+  ctx.lineTo(640, 80);
+  ctx.lineTo(740, 80);
+  ctx.lineTo(570, 470);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(620, 470);
+  ctx.lineTo(790, 80);
+  ctx.lineTo(850, 80);
+  ctx.lineTo(680, 470);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
   ctx.fillStyle = '#3a3122';
   ctx.fillRect(594, 94, 132, 142);
   ctx.fillStyle = '#262c3f';
@@ -68,6 +89,7 @@ function drawFloor(ctx) {
   ctx.strokeStyle = 'rgba(217,164,65,0.35)';
   ctx.lineWidth = 2;
   ctx.strokeRect(20, 84, 1240, 696);
+  ctx.lineWidth = 1;
 }
 
 function drawZones(ctx) {
@@ -77,6 +99,10 @@ function drawZones(ctx) {
     ctx.fillRect(zone.x, zone.y, zone.w, zone.h);
     ctx.strokeStyle = 'rgba(120,170,255,0.25)';
     ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
+    ctx.font = '600 10px Georgia, serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(160,195,255,0.45)';
+    ctx.fillText('DEEP RUG — MUFFLED', zone.x + 8, zone.y + 16);
   }
   for (let zi = 0; zi < DUCT_ZONES.length; zi += 1) {
     const zone = DUCT_ZONES[zi];
@@ -85,13 +111,23 @@ function drawZones(ctx) {
     ctx.strokeStyle = '#4a5064';
     ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
     ctx.beginPath();
-    const bars = Math.floor(zone.w / 14);
+    const bars = Math.floor(Math.max(zone.w, zone.h) / 14);
     for (let bi = 1; bi < bars; bi += 1) {
-      ctx.moveTo(zone.x + bi * 14, zone.y + 3);
-      ctx.lineTo(zone.x + bi * 14, zone.y + zone.h - 3);
+      if (zone.w >= zone.h) {
+        ctx.moveTo(zone.x + bi * 14, zone.y + 3);
+        ctx.lineTo(zone.x + bi * 14, zone.y + zone.h - 3);
+      }
+      if (zone.w < zone.h) {
+        ctx.moveTo(zone.x + 3, zone.y + bi * 14);
+        ctx.lineTo(zone.x + zone.w - 3, zone.y + bi * 14);
+      }
     }
     ctx.stroke();
   }
+  ctx.font = '600 10px Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(200,205,220,0.5)';
+  ctx.fillText('DUCT', DUCT_ZONES[0].x + 8, DUCT_ZONES[0].y - 6);
 }
 
 function drawSolids(ctx, night) {
@@ -100,13 +136,12 @@ function drawSolids(ctx, night) {
     const rect = WALL_RECTS[ri];
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
-  ctx.fillStyle = '#39415c';
   for (let ri = 0; ri < CASE_RECTS.length; ri += 1) {
     const rect = CASE_RECTS[ri];
+    ctx.fillStyle = '#39415c';
     ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     ctx.fillStyle = 'rgba(170,220,255,0.30)';
     ctx.fillRect(rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10);
-    ctx.fillStyle = '#39415c';
   }
   if (!night.doorOpen) {
     ctx.fillStyle = '#8a6a1f';
@@ -138,11 +173,13 @@ function drawLoot(ctx, night) {
     ctx.strokeStyle = 'rgba(232,228,216,0.25)';
     ctx.strokeRect(item.x - 17, item.y - 12, 34, 24);
     if (!item.taken) {
+      const twinkle = 1 + 0.18 * Math.sin(night.clock * 3 + li * 1.3);
       ctx.save();
       ctx.translate(item.x, item.y - 2);
       ctx.rotate(Math.PI / 4);
       ctx.fillStyle = item.hue;
-      ctx.fillRect(-7, -7, 14, 14);
+      const gem = 7 * twinkle;
+      ctx.fillRect(-gem, -gem, gem * 2, gem * 2);
       ctx.restore();
       ctx.font = '600 11px Georgia, serif';
       ctx.textAlign = 'center';
@@ -160,7 +197,7 @@ function drawLoot(ctx, night) {
   }
 }
 
-function drawVan(ctx, night) {
+function drawVan(ctx) {
   ctx.fillStyle = '#101319';
   ctx.fillRect(VAN_ZONE.x, VAN_ZONE.y, VAN_ZONE.w, VAN_ZONE.h);
   ctx.fillStyle = '#3f6d4e';
@@ -171,7 +208,15 @@ function drawVan(ctx, night) {
   ctx.fillText('GETAWAY VAN', VAN_ZONE.x + VAN_ZONE.w / 2, VAN_ZONE.y + 29);
 }
 
+function drawShadowBlob(ctx, x, y, r) {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + r * 0.8, r * 1.05, r * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawGuard(ctx, guard) {
+  drawShadowBlob(ctx, guard.x, guard.y, guard.radius);
   ctx.fillStyle = '#2c4a7c';
   ctx.beginPath();
   ctx.arc(guard.x, guard.y, guard.radius, 0, Math.PI * 2);
@@ -209,16 +254,18 @@ function drawCamera(ctx, camera) {
   ctx.font = '600 10px Georgia, serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = DIM;
-  ctx.fillText(camera.name, camera.x, camera.y + 26);
+  const label = camera.darkLeft > 0 ? camera.name + ' · DARK' : camera.name;
+  ctx.fillText(label, camera.x, camera.y + 26);
 }
 
 function drawThief(ctx, night) {
   const thief = night.thief;
+  drawShadowBlob(ctx, thief.x, thief.y, thief.radius);
   ctx.fillStyle = '#123f3a';
   ctx.beginPath();
   ctx.arc(thief.x, thief.y, thief.radius + 3, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#1d6a5f';
+  ctx.fillStyle = thief.inDuct ? '#14524a' : '#1d6a5f';
   ctx.beginPath();
   ctx.arc(thief.x, thief.y, thief.radius, 0, Math.PI * 2);
   ctx.fill();
@@ -346,20 +393,20 @@ function banner(ctx, title, lines, accent) {
 
 export function drawNight(ctx, night) {
   ctx.clearRect(0, 0, STAGE_W, STAGE_H);
-  drawFloor(ctx);
+  drawFloor(ctx, night);
   drawZones(ctx);
   drawLabels(ctx);
   drawLoot(ctx, night);
-  drawVan(ctx, night);
+  drawVan(ctx);
   drawSolids(ctx, night);
   const doorShut = !night.doorOpen;
   for (let gi = 0; gi < night.guards.length; gi += 1) {
     const guard = night.guards[gi];
-    drawCone(ctx, guard, 178, 0.56, guard.alert > 0.03 ? 'rgba(255,120,60,0.30)' : 'rgba(255,190,80,0.20)', doorShut);
+    drawCone(ctx, guard, GUARD_SIGHT, GUARD_HALF_ANGLE, guard.alert > 0.03 ? 'rgba(255,120,60,0.30)' : 'rgba(255,190,80,0.20)', doorShut);
   }
   for (let ci = 0; ci < night.cameras.length; ci += 1) {
     const camera = night.cameras[ci];
-    if (camera.darkLeft <= 0) drawCone(ctx, camera, 168, 0.44, camera.alert > 0.03 ? 'rgba(255,90,120,0.28)' : 'rgba(120,200,255,0.16)', doorShut);
+    if (camera.darkLeft <= 0) drawCone(ctx, camera, CAMERA_SIGHT, CAMERA_HALF_ANGLE, camera.alert > 0.03 ? 'rgba(255,90,120,0.28)' : 'rgba(120,200,255,0.16)', doorShut);
   }
   for (let gi = 0; gi < night.guards.length; gi += 1) drawGuard(ctx, night.guards[gi]);
   for (let ci = 0; ci < night.cameras.length; ci += 1) drawCamera(ctx, night.cameras[ci]);

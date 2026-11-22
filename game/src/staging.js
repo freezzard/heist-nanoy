@@ -2,6 +2,11 @@
 // starts a real run, then places the cast mid-action and freezes the clock, so
 // the frame the camera takes is the game's own render of a genuine position:
 // same floor, same cones, same rules — only the moment is chosen.
+//
+//   cover    Wren crosses the atrium with the Idol, two cones closing in
+//   vault    Wren picks the vault lock under Petra's patrol, Crown in sight
+//   alarm    Bruno's cone has her: alarm at 86, one breath from caught
+//   getaway  Crown on her back, one step from the van, haul nearly home
 
 import { SCREEN_PLAY, startRun } from './heist.js';
 
@@ -10,6 +15,7 @@ function placeGuard(night, index, x, y, facing, alert) {
   guard.x = x;
   guard.y = y;
   guard.facing = facing;
+  guard.faceBase = facing;
   guard.alert = alert;
   guard.pauseLeft = 2;
 }
@@ -28,6 +34,12 @@ function lift(night, id) {
       item.taken = true;
       night.carried.push(item);
     }
+  }
+}
+
+function emptyPedestal(night, id) {
+  for (let li = 0; li < night.loot.length; li += 1) {
+    if (night.loot[li].id === id) night.loot[li].taken = true;
   }
 }
 
@@ -77,9 +89,7 @@ function stageGetaway(night) {
   night.thief.facing = Math.PI / 2;
   lift(night, 'crown');
   lift(night, 'nightjar');
-  for (let li = 0; li < night.loot.length; li += 1) {
-    if (night.loot[li].id === 'opal') night.loot[li].taken = true;
-  }
+  emptyPedestal(night, 'opal');
   night.banked = 70;
   night.alarm = 18;
   night.time = 204;

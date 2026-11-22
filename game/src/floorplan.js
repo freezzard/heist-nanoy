@@ -15,6 +15,7 @@ export const GUARD_SPEED = 57;
 export const GUARD_RADIUS = 14;
 export const GUARD_SIGHT = 178;
 export const GUARD_HALF_ANGLE = 0.56;
+export const GUARD_PAUSE_SWEEP = 0.55;
 export const CAMERA_SIGHT = 168;
 export const CAMERA_HALF_ANGLE = 0.44;
 export const ALARM_FILL = 33;
@@ -25,6 +26,8 @@ export const EMP_CHARGES = 3;
 export const MAX_STRIKES = 3;
 
 // Solid rectangles: x, y, w, h. The vault door is listed apart because it can open.
+// The west and east dividers each carry two gaps: a low grate at y 104..134 where
+// the north duct slips through, and a walking door at y 250..310.
 export const WALL_RECTS = [
   { x: 0, y: 64, w: 1280, h: 16 },
   { x: 0, y: 784, w: 1280, h: 16 },
@@ -52,7 +55,9 @@ export const WALL_RECTS = [
 export const VAULT_DOOR = { x: 636, y: 236, w: 48, h: 14 };
 export const PICK_SPOT = { x: 660, y: 272 };
 
-// Grated crawl ducts: slow, and no watcher can see a thief inside one.
+// Grated crawl ducts: slow, and no watcher can see a thief inside one. The
+// north duct runs from the west gallery's grate into the vault itself; the
+// south duct slips under the hall divider east of the atrium door.
 export const DUCT_ZONES = [
   { x: 414, y: 104, w: 180, h: 30 },
   { x: 752, y: 438, w: 42, h: 82 },

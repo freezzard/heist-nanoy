@@ -1,11 +1,12 @@
-// people.js — the night staff and the thief: patrol walking with pauses and
-// sweeping glances, camera heads on their mounts, and circle-versus-wall motion.
+// people.js — the night staff and the thief: patrol walking with pauses whose
+// gaze sweeps the room, camera heads swinging on their mounts, and
+// circle-versus-wall motion that slides along whatever it meets.
 
 import {
-  CAMERA_POSTS, CASE_RECTS, GUARD_RADIUS, GUARD_ROUTES, GUARD_SPEED,
-  THIEF_RADIUS, VAULT_DOOR, WALL_RECTS,
+  CAMERA_POSTS, GUARD_PAUSE_SWEEP, GUARD_RADIUS, GUARD_ROUTES, GUARD_SPEED,
+  THIEF_RADIUS,
 } from './floorplan.js';
-import { angleDelta } from './sight.js';
+import { angleDelta, solidsList } from './sight.js';
 
 export function makeThief(start) {
   const thief = {
@@ -19,10 +20,11 @@ export function makeGuards() {
   const guards = [];
   for (let gi = 0; gi < GUARD_ROUTES.length; gi += 1) {
     const post = GUARD_ROUTES[gi];
+    const firstFacing = Math.atan2(post.route[1][1] - post.route[0][1], post.route[1][0] - post.route[0][0]);
     guards.push({
       name: post.name, route: post.route, leg: 0, pauseLeft: 0,
       x: post.route[0][0], y: post.route[0][1], radius: GUARD_RADIUS,
-      facing: Math.atan2(post.route[1][1] - post.route[0][1], post.route[1][0] - post.route[0][0]),
+      facing: firstFacing, faceBase: firstFacing,
       sweepPhase: gi * 1.7, alert: 0,
     });
   }
@@ -35,15 +37,10 @@ export function makeCameras() {
     const post = CAMERA_POSTS[ci];
     cameras.push({
       name: post.name, x: post.x, y: post.y, base: post.base,
-      sweep: post.sweep, speed: post.speed, facing: post.base, darkLeft: 0,
+      sweep: post.sweep, speed: post.speed, facing: post.base, darkLeft: 0, alert: 0,
     });
   }
   return cameras;
-}
-
-function solidRects(doorShut) {
-  const solids = doorShut ? WALL_RECTS.concat(CASE_RECTS, [VAULT_DOOR]) : WALL_RECTS.concat(CASE_RECTS);
-  return solids;
 }
 
 function pushOutOfRect(mover, rect) {
@@ -66,7 +63,7 @@ function pushOutOfRect(mover, rect) {
 export function slideMove(mover, dx, dy, doorShut) {
   mover.x += dx;
   mover.y += dy;
-  const solids = solidRects(doorShut);
+  const solids = solidsList(doorShut);
   for (let pass = 0; pass < 2; pass += 1) {
     for (let ri = 0; ri < solids.length; ri += 1) pushOutOfRect(mover, solids[ri]);
   }
@@ -74,10 +71,11 @@ export function slideMove(mover, dx, dy, doorShut) {
 
 export function updateGuard(guard, dt) {
   if (guard.pauseLeft > 0) {
+    // Paused at a waypoint: the body rests, the gaze does not. The cone swings
+    // across the room and back — read the swing before you cross.
     guard.pauseLeft -= dt;
-    guard.sweepPhase += dt * 1.9;
-    const target = guard.facing + Math.sin(guard.sweepPhase) * 0.012;
-    guard.facing = target;
+    guard.sweepPhase += dt * 1.55;
+    guard.facing = guard.faceBase + Math.sin(guard.sweepPhase) * GUARD_PAUSE_SWEEP;
     return;
   }
   const goal = guard.route[(guard.leg + 1) % guard.route.length];
@@ -86,8 +84,9 @@ export function updateGuard(guard, dt) {
   const dist = Math.hypot(dx, dy);
   if (dist < 4) {
     guard.leg = (guard.leg + 1) % guard.route.length;
-    guard.pauseLeft = 1.15;
+    guard.pauseLeft = 1.3;
     guard.sweepPhase = 0;
+    guard.faceBase = guard.facing;
     return;
   }
   const step = Math.min(dist, GUARD_SPEED * dt);
@@ -97,9 +96,8 @@ export function updateGuard(guard, dt) {
   guard.facing += angleDelta(guard.facing, wanted) * Math.min(1, dt * 7);
 }
 
-export function updateCamera(camera, dt, empDark) {
-  if (empDark) camera.darkLeft = Math.max(camera.darkLeft, 0.1);
+export function updateCamera(camera, dt, nowSeconds) {
   if (camera.darkLeft > 0) camera.darkLeft -= dt;
-  const swing = Math.sin(performance.now() / 1000 * camera.speed) * camera.sweep;
+  const swing = Math.sin(nowSeconds * camera.speed) * camera.sweep;
   camera.facing = camera.base + swing;
 }

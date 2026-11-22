@@ -1,6 +1,10 @@
 // heist.js — one night at the museum as a state machine: the run's state, the
 // per-frame update (movement, patrols, cameras, detection, alarm, loot, the
 // lockpick, the EMP, banking the haul at the van) and the caught/win endings.
+//
+// The fairness rules, plainly: eyes on you fill the alarm, cover slows it,
+// ducts erase it, and being caught costs only what you carry — never what you
+// already banked. Three catches end the night.
 
 import {
   ALARM_DECAY, ALARM_FILL, CAMERA_HALF_ANGLE, CAMERA_SIGHT, EMP_CHARGES,
@@ -11,7 +15,7 @@ import {
 import { makeCameras, makeGuards, makeThief, slideMove, updateCamera, updateGuard } from './people.js';
 import { noticeStrength, pointInRect, thiefCover } from './sight.js';
 import {
-  sndAlarmTick, sndBank, sndCaught, sndEmp, sndPickDone, sndPickup, sndStep,
+  sndAlarmTick, sndBank, sndCaught, sndEmp, sndPickDone, sndPickup, sndStart, sndStep,
 } from './soundboard.js';
 
 export const SCREEN_TITLE = 'title';
@@ -69,10 +73,12 @@ export function startRun(night) {
   night.empDarkLeft = 0;
   night.doorOpen = false;
   night.pickProgress = 0;
+  night.picking = false;
   night.time = 0;
   night.screen = SCREEN_PLAY;
   night.message = 'The museum sleeps. The Celestine Crown does not.';
   night.messageLeft = 3.4;
+  sndStart();
 }
 
 export function carriedValue(night) {
@@ -201,6 +207,7 @@ function fireEmp(night) {
     sndEmp();
     say(night, 'EMP pulse — every camera is blind for ' + EMP_SECONDS + ' seconds.', 2.4);
   }
+  if (night.empLeft <= 0 && night.empDarkLeft <= 0) say(night, 'The EMP is spent. Your feet are the only tool left.', 2);
 }
 
 function beCaught(night) {
@@ -219,6 +226,7 @@ function afterCaught(night) {
   night.carried = [];
   night.alarm = 22;
   night.pickProgress = 0;
+  night.picking = false;
   night.screen = SCREEN_PLAY;
   say(night, 'Dragged back to the entry hall. What you carried is gone; what you banked is safe.', 3.6);
 }
@@ -239,7 +247,7 @@ export function updateNight(night, input, dt) {
   tryPick(night, input, dt);
   moveThief(night, input, dt);
   for (let gi = 0; gi < night.guards.length; gi += 1) updateGuard(night.guards[gi], dt);
-  for (let ci = 0; ci < night.cameras.length; ci += 1) updateCamera(night.cameras[ci], dt, night.empDarkLeft > 0);
+  for (let ci = 0; ci < night.cameras.length; ci += 1) updateCamera(night.cameras[ci], dt, night.clock);
   runDetection(night, dt);
   tryLoot(night);
   tryBank(night);

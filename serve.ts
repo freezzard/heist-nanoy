@@ -1,6 +1,8 @@
 // serve.ts — a pocket static server for play-testing the game locally:
 //   node serve.ts [--port 8091]
-// It serves only the game/ folder beside this file and nothing outside it.
+// It serves only the game/ folder beside this file, refuses any path that
+// climbs out of it, and knows the handful of content types a canvas game
+// needs. A development convenience, nothing more.
 
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -36,8 +38,7 @@ const server = createServer((req, res) => {
     res.end('outside the museum');
     return;
   }
-  try {
-    const info = statSync(filePath);
+  try { const info = statSync(filePath);
     if (!info.isFile()) throw new Error('not a file');
     res.writeHead(200, { 'content-type': MIME_TYPES[extname(filePath)] ?? 'application/octet-stream' });
     createReadStream(filePath).pipe(res);

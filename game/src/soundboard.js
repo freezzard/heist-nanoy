@@ -1,8 +1,10 @@
 // soundboard.js — every sound is synthesized with WebAudio oscillators at play
 // time: no audio files, no samples, nothing borrowed. Wren's night is quiet
-// electronics: soft chimes for loot, a rising tick while eyes are on her.
+// electronics through one master gain: soft chimes for loot, a rising tick
+// while eyes are on her, a low sting when the night goes wrong.
 
 let sharedCtx = null;
+let masterGain = null;
 let muted = false;
 
 export function setMuted(nextMuted) {
@@ -18,6 +20,11 @@ function audioCtx() {
   let ctx = sharedCtx;
   if (ctx === null) {
     try { sharedCtx = new window.AudioContext(); ctx = sharedCtx; } catch (audioErr) { ctx = null; }
+    if (ctx !== null) {
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0.9;
+      masterGain.connect(ctx.destination);
+    }
   }
   if (ctx !== null && ctx.state === 'suspended') ctx.resume();
   return ctx;
@@ -26,7 +33,7 @@ function audioCtx() {
 function tone(freqFrom, freqTo, seconds, type, gainPeak, delay) {
   if (muted) return;
   const ctx = audioCtx();
-  if (ctx === null) return;
+  if (ctx === null || masterGain === null) return;
   const start = ctx.currentTime + delay;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -37,9 +44,14 @@ function tone(freqFrom, freqTo, seconds, type, gainPeak, delay) {
   gain.gain.exponentialRampToValueAtTime(gainPeak, start + 0.012);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + seconds);
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(masterGain);
   osc.start(start);
   osc.stop(start + seconds + 0.05);
+}
+
+export function sndStart() {
+  tone(440, 440, 0.09, 'triangle', 0.08, 0);
+  tone(587, 587, 0.14, 'triangle', 0.08, 0.08);
 }
 
 export function sndPickup() {

@@ -1,12 +1,18 @@
-// sight.js — the geometry of being seen: angles, line of sight past walls and
-// glass cases, and how strongly one watcher notices the thief right now.
+// sight.js — the geometry of being seen: angles, the museum's solid shapes as
+// one shared list, line of sight past walls and glass cases, and how strongly
+// one watcher notices the thief right now.
 
 import { CASE_RECTS, DUCT_ZONES, SHADOW_ZONES, WALL_RECTS, VAULT_DOOR } from './floorplan.js';
 
+/** Every solid rectangle, with the vault door counted only while it stays shut. */
+export function solidsList(doorShut) {
+  const solids = doorShut ? WALL_RECTS.concat(CASE_RECTS, [VAULT_DOOR]) : WALL_RECTS.concat(CASE_RECTS);
+  return solids;
+}
+
 export function angleDelta(fromAngle, toAngle) {
-  let delta = toAngle - fromAngle;
   const fullTurn = Math.PI * 2;
-  const wrapped = ((delta + Math.PI) % fullTurn + fullTurn) % fullTurn - Math.PI;
+  const wrapped = ((toAngle - fromAngle + Math.PI) % fullTurn + fullTurn) % fullTurn - Math.PI;
   return wrapped;
 }
 
@@ -15,15 +21,14 @@ export function pointInRect(px, py, rect) {
   return inside;
 }
 
+/** Where the thief stands: 'duct' (hidden), 'shadow' (muffled) or 'open'. */
 export function thiefCover(thief) {
   let cover = 'open';
+  for (let zi = 0; zi < SHADOW_ZONES.length; zi += 1) {
+    if (pointInRect(thief.x, thief.y, SHADOW_ZONES[zi])) cover = 'shadow';
+  }
   for (let zi = 0; zi < DUCT_ZONES.length; zi += 1) {
     if (pointInRect(thief.x, thief.y, DUCT_ZONES[zi])) cover = 'duct';
-  }
-  if (cover !== 'duct') {
-    for (let zi = 0; zi < SHADOW_ZONES.length; zi += 1) {
-      if (pointInRect(thief.x, thief.y, SHADOW_ZONES[zi])) cover = 'shadow';
-    }
   }
   return cover;
 }
@@ -43,7 +48,7 @@ function segmentCrossesRect(x1, y1, x2, y2, rect) {
 
 export function sightBlocked(x1, y1, x2, y2, doorShut) {
   let blocked = false;
-  const solids = doorShut ? WALL_RECTS.concat(CASE_RECTS, [VAULT_DOOR]) : WALL_RECTS.concat(CASE_RECTS);
+  const solids = solidsList(doorShut);
   for (let ri = 0; ri < solids.length; ri += 1) {
     if (segmentCrossesRect(x1, y1, x2, y2, solids[ri])) blocked = true;
   }

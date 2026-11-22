@@ -1,8 +1,10 @@
 // main.js — the page's bootstrap: canvas, keyboard and mouse, the frame loop,
-// and the ?shot= staging hook the screenshots are taken through.
+// and the ?shot= staging hook the screenshots are taken through. It also
+// leaves the night and the input on window.__night / window.__input so a
+// play-test harness can drive the real game and read its true state.
 
 import { STAGE_H, STAGE_W } from './floorplan.js';
-import { SCREEN_OVER, SCREEN_TITLE, SCREEN_WIN, makeNight, startRun, updateNight } from './heist.js';
+import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN, makeNight, startRun, updateNight } from './heist.js';
 import { drawNight } from './draw.js';
 import { stageScene } from './staging.js';
 import { isMuted, setMuted } from './soundboard.js';
@@ -39,9 +41,12 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') input.sprint = true;
   if (event.code === 'KeyE') input.empPressed = true;
-  if (event.code === 'Enter') beginIfNeeded();
+  if (event.code === 'Enter' || event.code === 'Space') {
+    beginIfNeeded();
+    event.preventDefault();
+  }
   if (event.code === 'KeyR') beginIfNeeded();
-  if (event.code === 'KeyP' && night.screen === 'play') night.paused = !night.paused;
+  if (event.code === 'KeyP' && night.screen === SCREEN_PLAY) night.paused = !night.paused;
   if (event.code === 'KeyM') setMuted(!isMuted());
 });
 
@@ -49,6 +54,15 @@ window.addEventListener('keyup', (event) => {
   const slot = KEYMAP[event.code];
   if (slot) input[slot] = false;
   if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') input.sprint = false;
+});
+
+window.addEventListener('blur', () => {
+  input.up = false;
+  input.down = false;
+  input.left = false;
+  input.right = false;
+  input.sprint = false;
+  input.pick = false;
 });
 
 canvas.addEventListener('pointerdown', () => {
