@@ -71,8 +71,8 @@ function stageVault(night) {
 }
 
 function stageAlarm(night) {
-  night.thief.x = 336;
-  night.thief.y = 330;
+  night.thief.x = 352;
+  night.thief.y = 322;
   night.thief.facing = 0.2;
   lift(night, 'abacus');
   night.alarm = 86;
